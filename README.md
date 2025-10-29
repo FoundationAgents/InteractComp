@@ -1,19 +1,27 @@
 # InteractComp
+[![arXiv](https://img.shields.io/badge/arXiv-2510.24668-b31b1b.svg)](https://arxiv.org/abs/2510.24668)
 
-InteractComp is a benchmark framework for evaluating how large language models handle interactive reasoning tasks. It ships with a reusable ReAct-style agent, pluggable search and clarification actions, and an asynchronous evaluation pipeline. For the research background, please consult the accompanying paper _InteractComp Benchmark_ (downloadable from arXiv).
+This is a framework for evaluating InteractComp benchmark about how large language models handle interactive reasoning tasks. It ships with a reusable ReAct-style agent, pluggable search and clarification actions, and an asynchronous evaluation pipeline.
+
+![InteractComp benchmark scope](docs/images/pic1.png)
 
 ## Highlights
-- **Multi-action agents**: built-in `answer`, `search`, and `interact` actions support answer-only, search-only, full, full-with-context, and forced-ask interaction modes.
+- **Multi-action agents**: built-in `answer`, `search`, and `ask` actions support answer-only, search-only, full, full-with-context, and forced-ask interaction modes.
 - **Async evaluation loop**: `asyncio`-based orchestration lets you benchmark multiple candidate models concurrently while tracking accuracy, token usage, and action counts.
 - **Simulated user responses**: the Responder component reads task-specific context and produces `yes` / `no` / `i don't know` answers to mimic user feedback during clarification rounds.
 - **Extensible engine**: model backends, search providers, and logging are abstracted behind simple interfaces, making it straightforward to plug in custom services.
+
+<p align="center">
+  <img src="docs/images/pic2.png" alt="InteractComp dataset statistics" width="780">
+  <br>
+</p>
 
 ## Repository Layout
 
 ```
 core/                 # Agent, actions, prompts, search helpers, logging utilities
 config/               # Experiment and infrastructure configuration templates
-data/                 # Datasets and evaluation outputs (populate with your data)
+data/                 # Datasets and evaluation outputs
 run_benchmark.py      # Main entry point for launching evaluations
 ```
 
@@ -29,7 +37,7 @@ run_benchmark.py      # Main entry point for launching evaluations
 
 ### 2. Configure Models and Services
 - Edit `config/infra_config.yaml` to add model credentials (`api_key`, `base_url`, temperature, and so on).  
-  When an LLM name is requested, the loader checks `config/global_config.yaml`, `config/global_config2.yaml`, and `config/infra_config.yaml` in that order, so feel free to define model entries in any of those files.
+  When an LLM name is requested, the loader checks `config/global_config.yaml`, and `config/infra_config.yaml` in that order, so feel free to define model entries in any of those files.
 - To enable web search, provide a [Serper.dev](https://serper.dev/) key in `search.engines.google.api_key`. Leave it empty if you plan to disable search actions.
 
 ### 3. Configure the Experiment
@@ -37,7 +45,7 @@ Adjust `config/exp_config.yaml` to describe your evaluation plan:
 
 ```yaml
 llms:
-  user_llm: "gpt-4o-mini"      # model used by the Responder (interact action)
+  user_llm: "gpt-4o-mini"      # model used by the Responder (ask action)
   test_llm:
     - "gpt-4o-mini"            # list of target models to benchmark
   temperature: 0.6
@@ -74,19 +82,12 @@ Outputs are written to `result_folder_path/<timestamp>/<model_name>/`:
 - `models_summary.csv` and `models_summary.json` aggregating average score, average cost, and total cost for each evaluated model.
 - `log.json` capturing grading mismatches and extraction issues for post-hoc review.
 
-## Troubleshooting
-- **Missing search credentials**: `SearchAction` returns `"No search engine configured"`. Supply a Serper key or switch to a mode that does not rely on search.
-- **Undefined model**: `LLMsConfig.default().get(model_name)` raises `Configuration not found` if the model entry is missing. Add the model under the `models` section in your configuration file.
-- **Forced-ask validation error**: the runner enforces `max_rounds >= enforce_ask_min + 1`. Increase `max_rounds` or reduce `enforce_ask_min`.
-
 ## Contributing & License
 - Contributions via issues or pull requests are welcome.
 - Unless otherwise noted, follow the license distributed with this repository.
 
 ## Citing InteractComp
-If you build upon InteractComp, please cite the accompanying paper:
-
-- _InteractComp Benchmark_, arXiv: [2510.24668](https://arxiv.org/abs/2510.24668)
+If you build upon InteractComp, please cite our work:
 
 ```bibtex
 @misc{deng2025interactcomp,
