@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>INTERACTCOMP — Interaction Benchmark</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <style>
+    html,body{font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial;}
+    .hero{
+      background:
+        radial-gradient(1200px 420px at 50% -10%, rgba(16,185,129,.18), transparent),
+        linear-gradient(180deg,#fffef8,#f6fbff);
+    }
+    .card{ box-shadow: 0 8px 24px rgba(2,10,20,.06); }
+    th button { display:flex; align-items:center; gap:.35rem; }
+    .arrow { font-size:.8em; opacity:.8; }
+  </style>
+</head>
+<body class="text-slate-800">
+
+  <!-- BANNER -->
+  <header class="hero border-b border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 py-20">
+      <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+        <div class="max-w-4xl">
+          <h1 class="text-7xl font-extrabold leading-[1.04] tracking-tight">INTERACTCOMP</h1>
+          <p class="mt-4 text-3xl text-emerald-700 font-semibold">Evaluating Search Agents With Ambiguous Queries</p>
+          <p class="mt-3 text-lg text-slate-600">Focus on ambiguity recognition, clarification, and calibrated answering.</p>
+        </div>
+        <img src="assets/IC.png" alt="InteractComp icon" class="w-36 h-36 md:w-48 md:h-48 object-contain self-start">
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN GRID -->
+  <main class="mx-auto max-w-7xl px-4 py-8 grid md:grid-cols-3 gap-8">
+    <!-- LEFT -->
+    <aside class="md:col-span-1 space-y-6">
+      <section class="bg-white rounded-xl border border-slate-200 p-6 card">
+        <h2 class="text-xl font-bold">Motivation & Setup</h2>
+        <p class="mt-2">
+          InteractComp targets real-world ambiguity. Agents can <code>search</code>, <code>interact</code> (yes/no), and <code>answer</code>.
+          We compare <em>Answer-only</em>, <em>Answer+Search</em>, and <em>Answer+Search+Interact</em>, and include a
+          forced-interaction variant to reveal latent capabilities.
+        </p>
+        <ul class="list-disc pl-5 mt-2 space-y-1">
+          <li><b>Metrics:</b> Round, IR, Accuracy, Calibration Error, Cost.</li>
+          <li><b>Grader:</b> GPT-4o (binary correctness); responder simulation for <em>interact</em>.</li>
+          <li><b>Finding:</b> With full context, accuracy rises to ~68–71%, showing interaction—not reasoning—is the primary bottleneck.</li>
+        </ul>
+      </section>
+
+      <section class="bg-white rounded-xl border border-slate-200 p-6 card">
+        <h2 class="text-xl font-bold">Key Findings</h2>
+        <ul class="list-disc pl-5 mt-2 space-y-1">
+          <li>Higher interaction rates often improve calibration (lower CE) even without consistent accuracy gains.</li>
+          <li>Open-weight vs proprietary models differ in interaction willingness; excessive caution or ineffective questioning hurts performance.</li>
+          <li>Allowing more rounds does not automatically increase interaction: models exhibit premature convergence.</li>
+        </ul>
+      </section>
+
+      <section class="bg-white rounded-xl border border-slate-200 p-6 card">
+        <h2 class="text-xl font-bold">Paper Links</h2>
+        <div class="mt-3 grid gap-2">
+          <a class="px-3 py-2 rounded-lg border hover:bg-slate-50" href="https://arxiv.org/abs/2510.24668" target="_blank" rel="noopener">arXiv</a>
+          <a class="px-3 py-2 rounded-lg border hover:bg-slate-50" href="assets/InteractComp.pdf" target="_blank" rel="noopener">PDF</a>
+          <a class="px-3 py-2 rounded-lg border hover:bg-slate-50" href="https://huggingface.co/datasets/Rubbisheep/InteractComp" target="_blank">Hugging Face Dataset</a>
+          <a class="px-3 py-2 rounded-lg border hover:bg-slate-50 text-left" href="assets/interactcomp.bib" download target="_blank" rel="noopener">BibTeX</a>
+        </div>
+      </section>
+    </aside>
+
+    <!-- RIGHT -->
+    <section class="md:col-span-2 space-y-6">
+      <!-- Controls -->
+      <div class="bg-white rounded-xl border border-slate-200 p-4 card flex flex-wrap gap-3 items-center">
+        <div class="font-semibold">Chart</div>
+        <select id="chartType" class="border rounded-lg px-2 py-1">
+          <option value="acc">Accuracy by Model</option>
+          <option value="ce">Calibration Error</option>
+          <option value="ir">IR vs Acc (scatter)</option>
+          <option value="cost">Cost vs Accuracy</option>
+        </select>
+
+        <div class="font-semibold ml-6">Table</div>
+        <select id="tableMode" class="border rounded-lg px-2 py-1" disabled>
+          <option value="main">Main Results</option>
+        </select>
+
+        <input id="q" placeholder="Filter model..." class="border rounded-lg px-2 py-1 ml-auto" />
+      </div>
+
+      <!-- Chart -->
+      <div class="bg-white rounded-xl p-4 card">
+        <h3 id="chartTitle" class="text-lg font-semibold mb-2">Accuracy by Model</h3>
+        <div id="chart" style="height:340px;"></div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-xl p-4 card">
+        <h3 id="tableTitle" class="text-lg font-semibold mb-2">Main Results</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="text-left text-slate-500" id="thead"></thead>
+            <tbody id="tbody" class="divide-y"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-200">
+    <div class="mx-auto max-w-7xl px-4 py-8 text-sm text-slate-500 flex flex-wrap justify-between gap-3">
+      <div>© 2025 INTERACTCOMP</div>
+      <div>Single page • Tailwind • ECharts</div>
+    </div>
+  </footer>
+
+  <script>
+  // ===== Data =====
+  const RAW = [
+    {"model":"GLM-4.5","family":"open","round":6.91,"ir":0.25,"acc":7.14,"ce":80.64,"cost":2.16,"color":"#73c2a2","icon":"assets/icons/zai.svg","iconSize":25},
+    {"model":"Kimi-K2","family":"open","round":4.95,"ir":5.98,"acc":6.51,"ce":87.10,"cost":0.75,"color":"#c99ad7","icon":"assets/icons/kimi.svg","iconSize":26},
+    {"model":"Deepseek-V3.1","family":"open","round":7.26,"ir":11.60,"acc":11.74,"ce":74.79,"cost":8.84,"color":"#56c5c9","icon":"assets/icons/deepseek.svg"},
+    {"model":"Deepseek-R1","family":"open","round":6.58,"ir":44.72,"acc":13.08,"ce":77.00,"cost":60.43,"color":"#45bfb5","icon":"assets/icons/deepseek.svg"},
+    {"model":"Qwen2.5-72B-Instruct","family":"open","round":7.45,"ir":31.88,"acc":8.08,"ce":77.57,"cost":0.15,"color":"#f5b96e","icon":"assets/icons/qwen.svg"},
+    {"model":"Qwen3-235B-A22B","family":"open","round":5.64,"ir":27.75,"acc":8.89,"ce":82.63,"cost":7.47,"color":"#7d7d80","icon":"assets/icons/qwen.svg"},
+    {"model":"GPT-4o-mini","family":"prop","round":4.16,"ir":73.95,"acc":7.13,"ce":37.44,"cost":0.35,"color":"#d0d0d5","icon":"assets/icons/openai.svg"},
+    {"model":"GPT-4o","family":"prop","round":5.65,"ir":9.26,"acc":7.62,"ce":79.50,"cost":8.65,"color":"#bebfbe","icon":"assets/icons/openai.svg"},
+    {"model":"GPT-4.1","family":"prop","round":5.49,"ir":34.02,"acc":10.79,"ce":82.11,"cost":5.58,"color":"#9ca8ff","icon":"assets/icons/openai.svg"},
+    {"model":"OpenAI o3","family":"prop","round":2.96,"ir":15.03,"acc":10.00,"ce":41.96,"cost":5.04,"color":"#8aa2ff","icon":"assets/icons/openai.svg"},
+    {"model":"GPT-5","family":"prop","round":4.33,"ir":30.87,"acc":13.73,"ce":68.67,"cost":16.85,"color":"#c7c7c7","icon":"assets/icons/openai.svg"},
+    {"model":"Gemini-2.5-Pro","family":"prop","round":4.65,"ir":11.09,"acc":10.28,"ce":86.52,"cost":15.04,"color":"#f0cf7f","icon":"assets/icons/Gemini.svg","iconSize":30},
+    {"model":"Grok-4","family":"prop","round":4.92,"ir":4.55,"acc":8.40,"ce":69.00,"cost":77.55,"color":"#606468","icon":"assets/icons/grok.svg","iconSize":26},
+    {"model":"Doubao-1.6","family":"prop","round":3.08,"ir":10.60,"acc":6.73,"ce":84.35,"cost":1.40,"color":"#f7a0b8","icon":"assets/icons/doubao.svg","iconSize":26},
+    {"model":"Claude-3.5-Sonnet","family":"prop","round":5.63,"ir":27.57,"acc":8.10,"ce":80.04,"cost":13.09,"color":"#f3a761","icon":"assets/icons/claude.svg"},
+    {"model":"Claude-Sonnet-4","family":"prop","round":6.90,"ir":10.76,"acc":7.46,"ce":79.62,"cost":19.47,"color":"#f7b978","icon":"assets/icons/claude.svg"},
+    {"model":"Claude-Opus-4","family":"prop","round":8.55,"ir":10.86,"acc":8.10,"ce":78.42,"cost":115.47,"color":"#f9c68e","icon":"assets/icons/claude.svg"}
+  ];
+
+  // A working copy to render (sorted/filtered view)
+  let view = [...RAW];
+
+  // ===== Elements =====
+  const chart = echarts.init(document.getElementById('chart'));
+  const chartType = document.getElementById('chartType');
+  const chartTitle = document.getElementById('chartTitle');
+  const thead = document.getElementById('thead');
+  const tbody = document.getElementById('tbody');
+  const q = document.getElementById('q');
+
+  // ===== Sort state =====
+  let sortKey = 'acc';
+  let sortAsc = true;
+  const COL_KEYS = ['model','family','round','ir','acc','ce','cost'];
+  const COL_LABELS = ['Model','Family','Round','IR %','Acc %','C.E.','Cost $'];
+
+  // ===== Utilities =====
+  function formatCell(k, v){
+    if(['round','ir','acc','ce','cost'].includes(k)) {
+      if (k==='cost') return v.toFixed(2);
+      if (k==='round') return v.toFixed(2);
+      return v.toFixed(2);
+    }
+    return v;
+  }
+
+  function sortView(){
+    view.sort((a,b)=>{
+      const va=a[sortKey], vb=b[sortKey];
+      if(typeof va === 'string') return sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+      return sortAsc ? va - vb : vb - va;
+    });
+  }
+
+  function filterView(){
+    const f = (q.value||'').toLowerCase();
+    view = RAW.filter(r => r.model.toLowerCase().includes(f));
+  }
+
+  // ===== Render: Table =====
+  function renderTable(){
+    // header with clickable buttons + arrow
+    const headerHTML = COL_LABELS.map((label, i)=>(
+      `<th class="py-2">
+        <button type="button" data-key="${COL_KEYS[i]}" class="hover:text-emerald-700">
+          <span>${label}</span>
+          <span class="arrow" id="arrow-${COL_KEYS[i]}"></span>
+        </button>
+      </th>`
+    )).join('');
+    thead.innerHTML = `<tr>${headerHTML}</tr>`;
+
+    // rows
+    tbody.innerHTML = '';
+    view.forEach(r=>{
+      const tds = COL_KEYS.map(k => `<td class="py-2 ${k==='model'?'font-medium':''}">${formatCell(k, r[k])}</td>`).join('');
+      tbody.insertAdjacentHTML('beforeend', `<tr>${tds}</tr>`);
+    });
+
+    // bind header click
+    thead.querySelectorAll('button[data-key]').forEach(btn=>{
+      btn.onclick = () => {
+        const key = btn.dataset.key;
+        if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = true; }
+        sortView();
+        renderTable();
+        setChart();
+      };
+    });
+
+    // update arrows
+    COL_KEYS.forEach(k=>{
+      const el = document.getElementById(`arrow-${k}`);
+      el.textContent = (k===sortKey) ? (sortAsc ? '▲' : '▼') : '';
+    });
+  }
+
+  // ===== Render: Chart (uses current `view` order) =====
+  function setChart(){
+    const models = view.map(d=>d.model);
+    let option = null, title = '';
+    if(chartType.value==='acc'){
+      title='Accuracy by Model';
+      const barData = view.map(d => ({
+        value: d.acc,
+        name: d.model,
+        itemStyle: {
+          color: d.color || '#4f46e5',
+          borderRadius: [8, 8, 0, 0]
+        }
+      }));
+      const markPointData = view
+        .filter(d => !!d.icon)
+        .map(d => {
+          const size = d.iconSize || 32;
+          const offsetY = -(Math.round(size / 2) + 6);
+          return {
+            coord: [d.model, d.acc],
+            symbol: `image://${d.icon}`,
+            symbolSize: [size, size],
+            symbolOffset: [0, offsetY],
+            value: ''
+          };
+        });
+      const barSeries = {
+        type:'bar',
+        data:barData,
+        barWidth:'55%'
+      };
+      if(markPointData.length){
+        barSeries.markPoint = {
+          label:{show:false},
+          data:markPointData
+        };
+      }
+      option = {
+        grid:{left:60,right:20,top:40,bottom:80},
+        tooltip:{trigger:'axis'},
+        xAxis:{
+          type:'category',
+          data:models,
+          axisLabel:{rotate:-30,interval:0}
+        },
+        yAxis:{type:'value',axisLabel:{formatter:'{value}%'}},
+        series:[barSeries]
+      };
+    } else if(chartType.value==='ce'){
+      title='Calibration Error';
+      option = {
+        tooltip:{trigger:'axis'},
+        xAxis:{type:'category',data:models},
+        yAxis:{type:'value'},
+        series:[{type:'bar',data:view.map(d=>d.ce)}]
+      };
+    } else if(chartType.value==='ir'){
+      title='Interaction vs Accuracy';
+      option = {
+        tooltip:{trigger:'item',formatter:(p)=>`${p.data[2]}<br/>IR: ${p.data[0]}%<br/>Acc: ${p.data[1]}%`},
+        xAxis:{type:'value',name:'IR %'},
+        yAxis:{type:'value',name:'Acc %'},
+        series:[{type:'scatter',data:view.map(d=>[d.ir,d.acc,d.model]),
+                 label:{show:true,position:'top',formatter:(p)=>p.data[2],fontSize:10}}]
+      };
+    } else {
+      title='Cost vs Accuracy';
+      option = {
+        tooltip:{trigger:'axis'},
+        xAxis:{type:'category',data:models},
+        yAxis:{type:'value',name:'Cost $'},
+        series:[{type:'bar',data:view.map(d=>d.cost)}]
+      };
+    }
+    chartTitle.textContent = title;
+    chart.clear(); chart.setOption(option);
+  }
+
+  // ===== Wire up =====
+  chartType.addEventListener('change', setChart);
+  q.addEventListener('input', ()=>{ filterView(); sortView(); renderTable(); setChart(); });
+  window.addEventListener('resize', ()=>chart.resize());
+
+  // initial
+  filterView();      // from RAW -> view (filter)
+  sortView();        // sort current view
+  renderTable();     // draw table with arrows + click
+  setChart();        // draw chart using same ordering
+  </script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+llms:
+  user_llm: "<your user llm here>"
+  test_llm:
+    - "<your test llm here>"
+    - "<your test llm here>"
+  temperature: 0.6
+  top_p: 0.95
+  
+experiment_setting:
+  max_rounds: 10
+  max_concurrency: 10
+  mode: "full" # full | search_only | answer_only | full_with_context | forced_ask
+  enforce_ask_min: 5 # minimum asks when mode == forced_ask
+
+file_paths:
+  data_path: "<your data path here>"
+  result_folder_path: "<your result folder path here>"
+
