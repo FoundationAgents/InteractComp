@@ -1,5 +1,5 @@
 # InteractComp
-[![arXiv](https://img.shields.io/badge/arXiv-2510.24668-b31b1b.svg)](https://arxiv.org/abs/2510.24668)
+[![arXiv](https://img.shields.io/badge/arXiv-2510.24668-b31b1b.svg)](https://arxiv.org/abs/2510.24668) [![HuggingFace](https://img.shields.io/badge/HuggingFace-Paper-ffae00.svg?logo=huggingface&logoColor=white)](https://huggingface.co/papers/2510.24668) [![Homepage](https://img.shields.io/badge/Homepage-InteractComp-0a66c2.svg)](https://foundationagents.github.io/InteractComp/)
 
 This is a framework for evaluating InteractComp benchmark about how large language models handle interactive reasoning tasks. It ships with a reusable ReAct-style agent, pluggable search and clarification actions, and an asynchronous evaluation pipeline.
 
