@@ -9,10 +9,9 @@ llms:
 experiment_setting:
   max_rounds: 10
   max_concurrency: 10
-  mode: "full" # full | search_only | answer_only | full_with_context | forced_ask
+  mode: "full" # full | search_only | ask_only | answer_only | full_with_context | forced_ask
   enforce_ask_min: 5 # minimum asks when mode == forced_ask
 
 file_paths:
   data_path: "<your data path here>"
   result_folder_path: "<your result folder path here>"
-

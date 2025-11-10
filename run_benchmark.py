@@ -20,6 +20,7 @@ from enum import Enum
 class BenchmarkMode(Enum):
     ANSWER_ONLY = "answer_only"
     SEARCH_ONLY = "search_only"
+    ASK_ONLY = "ask_only"
     FULL = "full"
     FULL_WITH_CONTEXT = "full_with_context"
     FORCED_ASK = "forced_ask"
@@ -47,6 +48,8 @@ class AgentCallable:
             return [AnswerAction()]
         elif self.mode == BenchmarkMode.SEARCH_ONLY.value:
             return [SearchAction(search_engine=self.search_engine), AnswerAction()]
+        elif self.mode == BenchmarkMode.ASK_ONLY.value:
+            return [AskAction(responder=self.responder), AnswerAction()]
         elif self.mode == BenchmarkMode.FULL.value or self.mode == BenchmarkMode.FULL_WITH_CONTEXT.value or self.mode == BenchmarkMode.FORCED_ASK.value:
             return [AnswerAction(), SearchAction(search_engine=self.search_engine), AskAction(responder=self.responder)]
         # default to full

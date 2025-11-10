@@ -6,7 +6,7 @@ This is a framework for evaluating InteractComp benchmark about how large langua
 ![InteractComp benchmark scope](docs/images/pic1.png)
 
 ## Highlights
-- **Multi-action agents**: built-in `answer`, `search`, and `ask` actions support answer-only, search-only, full, full-with-context, and forced-ask interaction modes.
+- **Multi-action agents**: built-in `answer`, `search`, and `ask` actions support answer-only, search-only, ask-only, full, full-with-context, and forced-ask interaction modes.
 - **Async evaluation loop**: `asyncio`-based orchestration lets you benchmark multiple candidate models concurrently while tracking accuracy, token usage, and action counts.
 - **Simulated user responses**: the Responder component reads task-specific context and produces `yes` / `no` / `i don't know` answers to mimic user feedback during clarification rounds.
 - **Extensible engine**: model backends, search providers, and logging are abstracted behind simple interfaces, making it straightforward to plug in custom services.
@@ -54,7 +54,7 @@ llms:
 experiment_setting:
   max_rounds: 10               # maximum agent steps per task
   max_concurrency: 10          # concurrent task evaluations
-  mode: "full"                 # full | search_only | answer_only | full_with_context | forced_ask
+  mode: "full"                 # full | search_only | ask_only | answer_only | full_with_context | forced_ask
   enforce_ask_min: 5           # minimum asks when mode == forced_ask
 
 file_paths:
