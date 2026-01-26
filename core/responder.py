@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Dict, Any, Optional
 
@@ -8,12 +9,16 @@ from pydantic import BaseModel, Field
 
 from core.engine.async_llm import AsyncLLM
 from core.engine.logs import logger
-from core.prompt import RESPONDER_PROMPT
+from core.prompt import RESPONDER_PROMPT, RESPONDER_PROMPT_NL
+from core.ask_nl_validator import AskNLValidator
 
 
 class Responder(BaseModel):
-    dataset_file: str = Field(default="data/interactcomp-1.jsonl")
+    dataset_file: str = Field(default="data/InteractComp210.decrypted.jsonl")
     llm: Optional[AsyncLLM] = Field(default=None)
+    response_mode: str = Field(default="closed")
+    max_nl_retries: int = Field(default=0)
+    validator: Optional[AskNLValidator] = Field(default=None)
 
     # Internal cache for id -> context
     context_map: Dict[int, str] = Field(default_factory=dict, exclude=True)
@@ -65,10 +70,19 @@ class Responder(BaseModel):
             return "i don't know"
         return "i don't know"
 
-    def _build_prompt(self, context: str, question: str) -> str:
+    def _build_prompt(self, context: str, question: str, use_nl: bool, retry_hint: str = "") -> str:
+        if use_nl:
+            hint = retry_hint.strip()
+            if hint:
+                hint = f"{hint}\n"
+            return RESPONDER_PROMPT_NL.format(
+                context=context,
+                question=question,
+                retry_hint=hint,
+            )
         return RESPONDER_PROMPT.format(context=context, question=question)
 
-    async def __call__(self, question: str, query_id: Any) -> str:
+    async def __call__(self, question: str, query_id: Any, response_mode: Optional[str] = None) -> str:
         # Ensure LLM is present
         if self.llm is None:
             logger.warning("Responder has no LLM injected; returning idk")
@@ -91,12 +105,35 @@ class Responder(BaseModel):
             return "i don't know"
 
         context = self.context_map[qid]
-        prompt = self._build_prompt(context=context, question=question)
+        mode = (response_mode or self.response_mode or "closed").strip().lower()
+        use_nl = mode in {"natural", "nl", "open"}
+        prompt = self._build_prompt(context=context, question=question, use_nl=use_nl)
 
         try:
-            raw = await self.llm(prompt)
-            ans = self._normalize(raw)
-            return ans
+            if not use_nl:
+                raw = await self.llm(prompt)
+                return self._normalize(raw)
+
+            retry_hint = ""
+            last_raw = ""
+            for attempt in range(self.max_nl_retries + 1):
+                if retry_hint:
+                    prompt = self._build_prompt(
+                        context=context,
+                        question=question,
+                        use_nl=True,
+                        retry_hint=retry_hint,
+                    )
+                raw = await self.llm(prompt)
+                last_raw = raw
+                if self.validator is None:
+                    return raw.strip()
+                ok, _reason = self.validator.check_answer(raw)
+                if ok:
+                    return raw.strip()
+                retry_hint = "Previous reply was invalid. Reply again."
+
+            return (last_raw or "").strip()
         except Exception as e:
             logger.error(f"Responder failed: {e}")
             return "i don't know"

@@ -43,7 +43,7 @@ def iter_jsonl(path: Path) -> Iterable[dict]:
 def write_jsonl(path: Path, records: Iterable[dict]) -> None:
     with path.open("w", encoding="utf-8") as fh:
         for record in records:
-            json.dump(record, fh, ensure_ascii=True, separators=(",", ":"))
+            json.dump(record, fh, ensure_ascii=False, separators=(",", ":"))
             fh.write("\n")
 
 

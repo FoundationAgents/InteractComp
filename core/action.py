@@ -3,6 +3,7 @@ from typing import Dict, Any, Optional
 from pydantic import BaseModel, Field
 
 from core.engine.logs import logger, LogLevel
+from core.ask_nl_validator import AskNLValidator
 
 
 class Action(BaseModel):
@@ -93,6 +94,60 @@ Example:
                 logger.error(f"AskAction responder failed: {e}")
                 reply = "i don't know"
         logger.action(f"AskReply: {reply}")
+        return reply
+
+
+class AskNLAction(Action):
+    """Ask the user a limited, single-scope question with a natural language reply."""
+
+    name: str = Field(default="ask_NL")
+    description: str = Field(
+        default=(
+            "Ask a single, specific question about one attribute, relationship, time, place, "
+            "or a single yes/no proposition. Do not ask for full lists, summaries, or multiple sub-questions."
+        )
+    )
+    responder: Optional[Any] = Field(default=None)
+    validator: Optional[Any] = Field(default=None)
+    parameters: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": (
+                        "Ask a single, limited question (one attribute/relationship/time/place or a yes/no proposition). "
+                        "Do not request all facts or summaries, and do not combine multiple sub-questions."
+                    ),
+                }
+            },
+            "required": ["question"],
+        }
+    )
+
+    async def __call__(self, *, question: str, query_id: str) -> str:  # type: ignore[override]
+        logger.action(f"AskNLAction: {question}")
+
+        if self.validator is not None:
+            try:
+                ok, _reason = await self.validator.check_question(question)
+            except Exception as e:
+                logger.error(f"AskNLAction validator failed: {e}")
+                ok = False
+            if not ok:
+                logger.action("AskNLReject: ask_invalid")
+                return "ask_invalid"
+
+        if self.responder is not None:
+            try:
+                reply = await self.responder(question, query_id, response_mode="natural")
+            except Exception as e:
+                logger.error(f"AskNLAction responder failed: {e}")
+                reply = "i don't know"
+        else:
+            reply = "i don't know"
+
+        logger.action(f"AskNLReply: {reply}")
         return reply
 
 

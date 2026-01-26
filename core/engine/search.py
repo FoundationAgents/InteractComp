@@ -3,6 +3,7 @@
 
 import yaml
 import aiohttp
+import asyncio
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -49,14 +50,22 @@ class GoogleSerper(SearchEngine):
         headers = {"X-API-KEY": self.api_key, "Content-Type": "application/json"}
         payload = {"q": query}
         timeout = aiohttp.ClientTimeout(total=self.timeout)
-        try:
-            async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
-                async with session.post(self.endpoint, json=payload, headers=headers) as resp:
-                    data = await resp.json(content_type=None)
-                    resp.raise_for_status()
-        except Exception as e:
-            logger.error(f"Serper error: {e}")
-            return [{"title": "Search error", "snippet": str(e), "source": "serper"}]
+        last_error = None
+        for attempt in range(3):
+            try:
+                async with aiohttp.ClientSession(timeout=timeout, trust_env=True) as session:
+                    async with session.post(self.endpoint, json=payload, headers=headers) as resp:
+                        data = await resp.json(content_type=None)
+                        resp.raise_for_status()
+                last_error = None
+                break
+            except Exception as e:
+                last_error = e
+                logger.error(f"Serper error (attempt {attempt + 1}/3): {e}")
+                if attempt < 2:
+                    await asyncio.sleep(0.5 * (2 ** attempt))
+        if last_error is not None:
+            return [{"title": "Search error", "snippet": str(last_error), "source": "serper"}]
 
         organic = data.get("organic") or []
         results: List[Dict[str, Any]] = []

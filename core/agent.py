@@ -182,14 +182,18 @@ class ReActAgent(BaseModel):
                 ask_count = 0
                 try:
                     for ctx in self.memory.get_all():
-                        if (ctx or {}).get("action", {}).get("name") == "ask":
+                        name = (ctx or {}).get("action", {}).get("name")
+                        if name in {"ask", "ask_NL"}:
                             ask_count += 1
                 except Exception:
                     ask_count = ask_count
                 if ask_count < int(self.enforce_ask_min):
+                    ask_label = "ask"
+                    if "ask" not in actions_map and "ask_NL" in actions_map:
+                        ask_label = "ask_NL"
                     obs = (
                         f"Answer is not allowed before {self.enforce_ask_min} asks. "
-                        f"Asks so far: {ask_count}/{self.enforce_ask_min}. Please use ask or search."
+                        f"Asks so far: {ask_count}/{self.enforce_ask_min}. Please use {ask_label} or search."
                     )
                     self.invalid_action_total += 1
                     invalid_retries += 1
@@ -215,7 +219,7 @@ class ReActAgent(BaseModel):
                 continue
     
             action_obj = actions_map[act_name]
-            if act_name == "ask":
+            if act_name in {"ask", "ask_NL"}:
                 obs = await action_obj(**params, query_id=query_id)
             else:
                 obs = await action_obj(**params)

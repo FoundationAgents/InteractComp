@@ -40,6 +40,14 @@ When the ask action is available, you may pose closed-ended questions to fill ga
 
 **Important: When you choose the ask action, you can only ask closed-ended, yes/no questions. The user will only respond with "yes", "no", or "I don't know".**
 
+### Using ask_NL
+When the ask_NL action is available, ask a single, specific question about one attribute, relationship, time, place, or a single yes/no proposition.
+- Do not request full lists, complete descriptions, summaries, or overviews.
+- Do not combine multiple sub-questions or multiple dimensions in one question.
+- Do not ask about attributes that are inherently collective or open-ended
+
+Expect a short natural language reply.
+
 ## Available actions:
 {actions}
 
@@ -140,4 +148,36 @@ QUESTION
 {question}
 
 Output: yes | no | i don't know
+"""
+
+RESPONDER_PROMPT_NL = """
+You are a specialized Q&A agent. Think step by step before you output the answer.
+
+Rules:
+- Use only the provided CONTEXT to answer the QUESTION.
+- Answer only what is asked; do not list all facts or summarize the full context.
+- Keep the reply concise and specific.
+{retry_hint}
+CONTEXT
+{context}
+
+QUESTION
+{question}
+
+Output: short natural language answer
+"""
+
+ASK_NL_GUARD_PROMPT = """
+You are a strict checker for whether a question is allowed.
+
+Allow ONLY if the question:
+- Asks about exactly one attribute, relationship, time, place, or a single yes/no proposition.
+- Does NOT ask for all information, complete descriptions, summaries, or overviews.
+- Does NOT contain multiple sub-questions or multiple dimensions in one question.
+
+Return JSON only:
+{{"ok": true/false, "reason": "<short reason>"}}
+
+Question:
+{question}
 """

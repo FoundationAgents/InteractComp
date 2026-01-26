@@ -11,8 +11,9 @@ import yaml
 from core.engine.async_llm import create_llm_instance, LLMsConfig, AsyncLLM
 from core.engine.search import create_search_engine
 from core.engine.logs import logger
-from core.action import AnswerAction, SearchAction, AskAction
+from core.action import AnswerAction, SearchAction, AskAction, AskNLAction
 from core.responder import Responder
+from core.ask_nl_validator import AskNLValidator
 from core.agent import ReActAgent
 from core.benchmark import InteractCompBenchmark
 from enum import Enum
@@ -32,28 +33,46 @@ class AgentCallable:
     Returns per-task history directly to avoid shared state issues.
     """
 
-    def __init__(self, *, llm: AsyncLLM, search_engine, max_steps: int, mode: str, benchmark: InteractCompBenchmark, responder_model: Any, enforce_ask_min: int = 5):
+    def __init__(self, *, llm: AsyncLLM, search_engine, max_steps: int, mode: str, benchmark: InteractCompBenchmark, responder_model: Any, ask_mode: str, enforce_ask_min: int = 5):
         self.llm = llm
         self.search_engine = search_engine
         self.max_steps = max_steps
         self.mode = mode
+        self.ask_mode = (ask_mode or "ask").strip()
         self.benchmark = benchmark
         self.enforce_ask_min = enforce_ask_min
         responder_llm = create_llm_instance(responder_model)
         responder_llm.config.temperature = 1.0
-        self.responder = Responder(dataset_file=self.benchmark.file_path, llm=responder_llm)
+        self.ask_nl_validator = AskNLValidator(responder_llm)
+        self.responder = Responder(
+            dataset_file=self.benchmark.file_path,
+            llm=responder_llm,
+            validator=self.ask_nl_validator,
+        )
 
     def _build_actions(self):
+        ask_action = AskAction(responder=self.responder)
+        ask_nl_action = AskNLAction(responder=self.responder, validator=self.ask_nl_validator)
+        use_nl = self.ask_mode == "ask_NL"
+        active_ask = ask_nl_action if use_nl else ask_action
         if self.mode == BenchmarkMode.ANSWER_ONLY.value:
             return [AnswerAction()]
         elif self.mode == BenchmarkMode.SEARCH_ONLY.value:
             return [SearchAction(search_engine=self.search_engine), AnswerAction()]
         elif self.mode == BenchmarkMode.ASK_ONLY.value:
-            return [AskAction(responder=self.responder), AnswerAction()]
+            return [active_ask, AnswerAction()]
         elif self.mode == BenchmarkMode.FULL.value or self.mode == BenchmarkMode.FULL_WITH_CONTEXT.value or self.mode == BenchmarkMode.FORCED_ASK.value:
-            return [AnswerAction(), SearchAction(search_engine=self.search_engine), AskAction(responder=self.responder)]
+            return [
+                AnswerAction(),
+                SearchAction(search_engine=self.search_engine),
+                active_ask,
+            ]
         # default to full
-        return [AnswerAction(), SearchAction(search_engine=self.search_engine), AskAction(responder=self.responder)]
+        return [
+            AnswerAction(),
+            SearchAction(search_engine=self.search_engine),
+            active_ask,
+        ]
 
 
     async def __call__(self, task: dict) -> Tuple[str, str, str, float, Dict[str, int]]:
@@ -159,6 +178,7 @@ async def main():
     max_concurrency = int(experiment.get("max_concurrency", 10))
     mode = str(experiment.get("mode", "full")).strip().lower()
     enforce_ask_min = int(experiment.get("enforce_ask_min", 5))
+    ask_mode = str(experiment.get("ask_mode", "ask")).strip()
     if mode == BenchmarkMode.ANSWER_ONLY.value:
         max_rounds= 1
     else:
@@ -211,6 +231,7 @@ async def main():
             mode=mode,
             benchmark=benchmark,
             responder_model=responder_model_config,
+            ask_mode=ask_mode,
             enforce_ask_min=enforce_ask_min,
         )
 
